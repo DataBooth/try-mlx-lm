@@ -13,7 +13,7 @@ using pre-trained language models.
 
 ## Features
 
-- **Model Initialization**: Easily load and initialise language models from [Hugging Face](https://huggingface.co).
+- **Model Initialisation**: Easily load and initialise language models from [Hugging Face](https://huggingface.co).
 - **Story Generation**: Generate short stories based on given themes.
 - **Code Assistance**: Explain code snippets and suggest improvements.
 - **Chat Functionality**: Engage in conversational interactions with the model.
