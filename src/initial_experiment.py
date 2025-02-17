@@ -57,6 +57,10 @@ class MLXModelHandler:
     def _load_model(self, model_name: str) -> Tuple:
         return load(model_name)
 
+    @classmethod
+    def hf_url(cls) -> str:
+        return f"https://huggingface.co/{cls.HF_MODEL_NAME}"
+
     def generate_text(self, prompt: str, max_tokens: int = None) -> str:
         max_tokens = max_tokens or self.MAX_TOKENS
         return generate(
@@ -129,6 +133,9 @@ def main():
         small_model = MLXModelHandler.HF_MODEL_NAME
 
         # 0. Report on model size (they can get large!)
+
+        print(f"\nModel URL: {MLXModelHandler.hf_url()}\n")
+
         print_heading_sep("Model size info")
         model_size = MLXModelHandler.get_model_size(small_model)
         logger.info(f"Model size: {model_size:.2f} GB")
