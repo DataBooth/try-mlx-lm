@@ -1,0 +1,4 @@
+[model]
+name = "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit"
+max_tokens = 200
+verbose = true
