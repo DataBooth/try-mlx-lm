@@ -29,8 +29,9 @@ class MLXModelHandler:
     @classmethod
     def initialise(cls):
         try:
-            load_dotenv()
-            cls.HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
+            if "HUGGINGFACE_TOKEN" not in os.environ:
+                load_dotenv()
+            cls.HUGGINGFACE_TOKEN = os.environ["HUGGINGFACE_TOKEN"]
             if not cls.HUGGINGFACE_TOKEN:
                 raise ValueError("HUGGINGFACE_TOKEN not found in .env file")
 
@@ -50,7 +51,6 @@ class MLXModelHandler:
         except Exception as e:
             logger.exception(f"Failed to initialise MLXModelHandler: {e}")
             raise
-
 
     def __init__(self, model_name: str = None, verbose: bool = None):
         self.model_name = model_name or self.HF_MODEL_NAME
@@ -102,18 +102,11 @@ class MLXModelHandler:
         model_dir = cache_dir / f"models--{model_name.replace('/', '--')}"
 
         if not model_dir.exists():
-            logger.error(f"Model directory not found: {model_dir}")
-            return 0
+            logger.warning(f"Model directory not found: {model_dir}")
+            return 0.0
 
-        total_size = 0
-        try:
-            for file_path in model_dir.rglob("*"):
-                if file_path.is_file():
-                    total_size += file_path.stat().st_size
-            return total_size / (1024 * 1024 * 1024)  # Convert to GB
-        except Exception as e:
-            logger.error(f"Error calculating model size: {e}")
-            return 0
+        total_size = sum(f.stat().st_size for f in model_dir.rglob("*") if f.is_file())
+        return total_size / (1024 * 1024 * 1024)  # Convert to GB
 
 
 class StoryGenerator(MLXModelHandler):

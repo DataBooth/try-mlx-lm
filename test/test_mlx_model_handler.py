@@ -1,20 +1,33 @@
 import pytest
 from unittest.mock import patch, MagicMock
+from pathlib import Path
 
 from mlx_model_handler import MLXModelHandler, StoryGenerator, CodeAssistant
 
 
 @pytest.fixture(autouse=True)
-def mlx_model_handler_model_handler(mock_env_and_toml):
+def mlx_model_handler_model_handler(mock_env_and_toml, mock_load_dotenv, mock_env_vars):
     with patch("mlx_model_handler.Path") as mock_path:
         mock_path.return_value.exists.return_value = True
         mock_path.return_value.__str__.return_value = "mocked_model.toml"
-        MLXModelHandler.initialise()
+        with patch("mlx_model_handler.login") as mock_login:
+            MLXModelHandler.initialise()
+
+
+@pytest.fixture(autouse=True)
+def mock_load_dotenv():
+    with patch("mlx_model_handler.load_dotenv") as mock:
+        mock.return_value = True
+        yield mock
+
+
+@pytest.fixture(autouse=True)
+def mock_env_vars(monkeypatch):
+    monkeypatch.setenv("HUGGINGFACE_TOKEN", "mock_token")
 
 
 @pytest.fixture
-def mock_env_and_toml(monkeypatch):
-    monkeypatch.setenv("HUGGINGFACE_TOKEN", "mock_token")
+def mock_env_and_toml():
     mock_toml_content = b"""
     [model]
     name = "test-model"
@@ -22,8 +35,14 @@ def mock_env_and_toml(monkeypatch):
     verbose = false
     """
     with patch("builtins.open", new_callable=MagicMock) as mock_open:
-        mock_open.return_value.__enter__.return_value.read.return_value = mock_toml_content
-        yield mock_open
+        mock_file = MagicMock()
+        mock_file.read.return_value = mock_toml_content
+        mock_open.return_value.__enter__.return_value = mock_file
+        with patch("mlx_model_handler.tomllib.load") as mock_load:
+            mock_load.return_value = {
+                "model": {"name": "test-model", "max_tokens": 100, "verbose": False}
+            }
+            yield mock_open
 
 
 @pytest.fixture
@@ -68,15 +87,22 @@ class TestMLXModelHandler:
         mock_generate.assert_called_once()
 
     def test_get_model_size(self, mock_env_and_toml, tmp_path):
-        model_dir = tmp_path / "models--test-model"
+        model_name = "test-model"
+        cache_dir = tmp_path / ".cache" / "huggingface" / "hub"
+        model_dir = cache_dir / f"models--{model_name.replace('/', '--')}"
         model_dir.mkdir(parents=True)
         (model_dir / "model.bin").write_text("dummy content" * 1000)
 
-        with patch("pathlib.Path.home") as mock_home:
+        with (
+            patch("pathlib.Path.home") as mock_home,
+            patch("mlx_model_handler.Path", wraps=Path) as mock_path,
+        ):
             mock_home.return_value = tmp_path
-            size = MLXModelHandler.get_model_size("test-model")
+            mock_path.home.return_value = tmp_path
+            size = MLXModelHandler.get_model_size(model_name)
 
         assert size > 0
+        assert isinstance(size, float)
 
 
 class TestStoryGenerator:
