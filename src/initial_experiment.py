@@ -32,7 +32,7 @@ class MLXModelHandler:
                 raise ValueError("HUGGINGFACE_TOKEN not found in .env file")
 
             try:
-                with open("model.toml", "rb") as f:
+                with open(Path.cwd() / "model.toml", "rb") as f:
                     model_config = tomllib.load(f)
             except FileNotFoundError:
                 logger.error("model.toml file not found")
@@ -120,22 +120,22 @@ class MLXModelHandler:
 
 class StoryGenerator(MLXModelHandler):
     @timer
-    def create_story(self, theme: str) -> str:
-        prompt = f"Write a short story about {theme}"
+    def create_story(self, theme: str, prompt_template: str, max_tokens: int) -> str:
+        prompt = prompt_template.format(theme=theme)
         logger.info(f"Generating story with prompt: {prompt}")
-        return self.generate_text(prompt, max_tokens=self.MAX_TOKENS)
+        return self.generate_text(prompt, max_tokens=max_tokens)
 
 class CodeAssistant(MLXModelHandler):
     @timer
-    def explain_code(self, code_snippet: str) -> str:
-        prompt = f"Explain the following code:\n\n{code_snippet}"
+    def explain_code(self, code_snippet: str, prompt_template: str) -> str:
+        prompt = prompt_template.format(code_snippet=code_snippet)
         logger.info(f"Explaining code snippet: {prompt}")
         return self.generate_text(prompt)
 
     @timer
-    def suggest_improvements(self, code_snippet: str) -> str:
-        prompt = f"Suggest improvements for the following code:\n\n{code_snippet}"
-        logger.info(f"Suggesting improvements for code snippet: {code_snippet}")
+    def suggest_improvements(self, code_snippet: str, prompt_template: str) -> str:
+        prompt = prompt_template.format(code_snippet=code_snippet)
+        logger.info(f"Suggesting improvements for code snippet: {prompt}")
         return self.generate_text(prompt)
 
 def print_heading_sep(heading: str):
@@ -148,42 +148,45 @@ def print_heading_sep(heading: str):
 def main():
     try:
         MLXModelHandler.initialise()
-        small_model = MLXModelHandler.HF_MODEL_NAME
+        hf_model = MLXModelHandler.HF_MODEL_NAME
 
         print(f"\nModel URL: {MLXModelHandler.hf_url()}\n")
 
-        print_heading_sep("Model size info")
-        model_size = MLXModelHandler.get_model_size(small_model)
+        # Load examples configuration
+        with open(Path.cwd() / "src/examples.toml", "rb") as f:
+            config = tomllib.load(f)
+
+        print_heading_sep(config["general"]["model_info_heading"])
+        model_size = MLXModelHandler.get_model_size(hf_model)
         logger.info(f"Model size: {model_size:.2f} GB")
 
-        print_heading_sep("Generate a story example")
-        story_gen = StoryGenerator(small_model)
-        story = story_gen.create_story("a magical forest")
+        print_heading_sep(config["generate_story"]["heading"])
+        story_gen = StoryGenerator(hf_model)
+        story = story_gen.create_story(
+            config["generate_story"]["theme"],
+            config["generate_story"]["prompt_template"],
+            config["generate_story"]["max_tokens"]
+        )
         print(f"Generated story: {story}")
 
-        print_heading_sep("Code assistant example")
-        code_assist = CodeAssistant(small_model)
-        code_snippet = """
-        def fibonacci(n):
-            if n <= 1:
-                return n
-            else:
-                return fibonacci(n-1) + fibonacci(n-2)
-        """
-        explanation = code_assist.explain_code(code_snippet)
+        print_heading_sep(config["code_assistant"]["heading"])
+        code_assist = CodeAssistant(hf_model)
+        code_snippet = config["code_assistant"]["code_snippet"]
+        explanation = code_assist.explain_code(
+            code_snippet,
+            config["code_assistant"]["explain_prompt_template"]
+        )
         logger.info(f"Code explanation: {explanation}")
 
-        improvements = code_assist.suggest_improvements(code_snippet)
+        improvements = code_assist.suggest_improvements(
+            code_snippet,
+            config["code_assistant"]["improve_prompt_template"]
+        )
         print(f"Code improvements: {improvements}")
 
-        print_heading_sep("Chat example")
-        chat_model = MLXModelHandler(small_model, verbose=False)
-        messages = [
-            {"role": "user", "content": "What's the capital of France?"},
-            {"role": "assistant", "content": "The capital of France is Paris."},
-            {"role": "user", "content": "And what's its most famous landmark?"},
-        ]
-        chat_response = chat_model.chat(messages)
+        print_heading_sep(config["chat"]["heading"])
+        chat_model = MLXModelHandler(hf_model, verbose=False)
+        chat_response = chat_model.chat(config["chat"]["messages"])
         print(f"Chat response: {chat_response}")
 
     except Exception as e:

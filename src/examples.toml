@@ -1,0 +1,35 @@
+[general]
+model_info_heading = "Model size info"
+
+[generate_story]
+heading = "Generate a story example"
+theme = "a magical forest"
+max_tokens = 200
+prompt_template = "Write a short story about {theme}"
+
+[code_assistant]
+heading = "Code assistant example"
+code_snippet = """
+def fibonacci(n):
+    if n <= 1:
+        return n
+    else:
+        return fibonacci(n-1) + fibonacci(n-2)
+"""
+explain_prompt_template = "Explain the following code:\n\n{code_snippet}"
+improve_prompt_template = "Suggest improvements for the following code:\n\n{code_snippet}"
+
+[chat]
+heading = "Chat example"
+
+[[chat.messages]]
+role = "user"
+content = "What's the capital of France?"
+
+[[chat.messages]]
+role = "assistant"
+content = "The capital of France is Paris."
+
+[[chat.messages]]
+role = "user"
+content = "And what's its most famous landmark?"
