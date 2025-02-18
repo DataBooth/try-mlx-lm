@@ -1,4 +1,5 @@
 import os
+import time
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -8,9 +9,19 @@ from huggingface_hub import login
 from loguru import logger
 from mlx_lm import generate, load
 
+def timer(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        execution_time = end_time - start_time
+        logger.info(f"{func.__name__} executed in {execution_time:.2f} seconds")
+        return result
+    return wrapper
 
 class MLXModelHandler:
     logger.add("mlx_model_handler.log", rotation="2 MB", level="INFO")
+    _model_cache = {}  # Class-level cache for loaded models
 
     @classmethod
     def initialise(cls):
@@ -54,13 +65,23 @@ class MLXModelHandler:
             logger.error(f"Failed to load model: {e}")
             raise
 
-    def _load_model(self, model_name: str) -> Tuple:
-        return load(model_name)
+    @classmethod
+    @timer
+    def _load_model(cls, model_name: str) -> Tuple:
+        if model_name in cls._model_cache:
+            logger.info(f"Using cached model: {model_name}")
+            return cls._model_cache[model_name]
+        
+        logger.info(f"Loading model: {model_name}")
+        model, tokenizer = load(model_name)
+        cls._model_cache[model_name] = (model, tokenizer)
+        return model, tokenizer
 
     @classmethod
     def hf_url(cls) -> str:
         return f"https://huggingface.co/{cls.HF_MODEL_NAME}"
 
+    @timer
     def generate_text(self, prompt: str, max_tokens: int = None) -> str:
         max_tokens = max_tokens or self.MAX_TOKENS
         return generate(
@@ -71,6 +92,7 @@ class MLXModelHandler:
             verbose=self.verbose,
         )
 
+    @timer
     def chat(self, messages: List[Dict[str, str]]) -> str:
         prompt = self.tokenizer.apply_chat_template(
             messages, add_generation_prompt=True
@@ -96,25 +118,25 @@ class MLXModelHandler:
             logger.error(f"Error calculating model size: {e}")
             return 0
 
-
 class StoryGenerator(MLXModelHandler):
+    @timer
     def create_story(self, theme: str) -> str:
         prompt = f"Write a short story about {theme}"
         logger.info(f"Generating story with prompt: {prompt}")
         return self.generate_text(prompt, max_tokens=self.MAX_TOKENS)
 
-
 class CodeAssistant(MLXModelHandler):
+    @timer
     def explain_code(self, code_snippet: str) -> str:
         prompt = f"Explain the following code:\n\n{code_snippet}"
         logger.info(f"Explaining code snippet: {prompt}")
         return self.generate_text(prompt)
 
+    @timer
     def suggest_improvements(self, code_snippet: str) -> str:
         prompt = f"Suggest improvements for the following code:\n\n{code_snippet}"
         logger.info(f"Suggesting improvements for code snippet: {code_snippet}")
         return self.generate_text(prompt)
-
 
 def print_heading_sep(heading: str):
     print()
@@ -123,16 +145,10 @@ def print_heading_sep(heading: str):
     print("-" * 60)
     print()
 
-
-# Example usage
-
-
 def main():
     try:
         MLXModelHandler.initialise()
         small_model = MLXModelHandler.HF_MODEL_NAME
-
-        # 0. Report on model size (they can get large!)
 
         print(f"\nModel URL: {MLXModelHandler.hf_url()}\n")
 
@@ -140,13 +156,11 @@ def main():
         model_size = MLXModelHandler.get_model_size(small_model)
         logger.info(f"Model size: {model_size:.2f} GB")
 
-        # 1. Story generation
         print_heading_sep("Generate a story example")
         story_gen = StoryGenerator(small_model)
         story = story_gen.create_story("a magical forest")
         print(f"Generated story: {story}")
 
-        # 2. Code assistance
         print_heading_sep("Code assistant example")
         code_assist = CodeAssistant(small_model)
         code_snippet = """
@@ -162,7 +176,6 @@ def main():
         improvements = code_assist.suggest_improvements(code_snippet)
         print(f"Code improvements: {improvements}")
 
-        # 3. Chat example
         print_heading_sep("Chat example")
         chat_model = MLXModelHandler(small_model, verbose=False)
         messages = [
@@ -175,7 +188,6 @@ def main():
 
     except Exception as e:
         logger.exception(f"An error occurred: {e}")
-
 
 if __name__ == "__main__":
     main()

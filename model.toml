@@ -1,4 +1,5 @@
 [model]
-name = "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit"
+#name = "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit"
+name = "mlx-community/Mistral-7B-Instruct-v0.3-4bit"
 max_tokens = 200
-verbose = true
+verbose = false
