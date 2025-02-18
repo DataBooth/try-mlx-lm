@@ -1,7 +1,7 @@
 [project]
 name = "try-mlx-lm"
 version = "0.1.0"
-description = "Add your description here"
+description = "Try MLX-LM package (run local LLMs on Apple Silicon)"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -13,4 +13,5 @@ dependencies = [
 [dependency-groups]
 dev = [
     "black>=25.1.0",
+    "pytest>=8.3.4",
 ]
